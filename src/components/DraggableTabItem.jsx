@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, memo, useCallback, useMemo } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
+import { getIdentityColor } from '../util/ghostCompat';
 import { 
     FolderOutlined, 
     StarFilled, 
@@ -32,6 +33,24 @@ const CollapsedBadge = memo(({ count }) => {
 });
 
 CollapsedBadge.displayName = 'CollapsedBadge';
+
+/**
+ * Ghost Browser identity badge — small colored dot shown on tabs when running
+ * inside Ghost Browser. Invisible in plain Chrome (identityId will be null).
+ */
+const GhostIdentityBadge = memo(({ identityId, isTemporary }) => {
+    if (!identityId) return null;
+    const color = getIdentityColor(identityId);
+    return (
+        <span
+            className="ghost-identity-badge"
+            style={{ backgroundColor: color }}
+            title={`Ghost Identity: ${identityId}${isTemporary ? ' (temporary)' : ''}`}
+        />
+    );
+});
+
+GhostIdentityBadge.displayName = 'GhostIdentityBadge';
 
 /**
  * Tab item icon component
@@ -491,6 +510,7 @@ export const DraggableTabItem = memo(({
                     <TabItemIcon tab={tab} />
                     {isCollapsed && <CollapsedBadge count={collapsedChildrenCount} />}
                     {tabMarks?.get(tab.id) && <FaviconBadge markKey={tabMarks.get(tab.id)} />}
+                    <GhostIdentityBadge identityId={tab.ghostIdentityId} isTemporary={tab.ghostIsTemporary} />
                 </div>
 
                 <TabItemControl

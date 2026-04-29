@@ -143,7 +143,15 @@ class TreeGenerator {
             return this.rootNode;
         }
         if (!this.nodeMap[tab.id]) {
-            this.nodeMap[tab.id] = new TabTreeNode(tab);
+            // Hoist Ghost identity metadata onto the tab object so UI components
+            // can read it without knowing about the ghostPublicAPI structure.
+            const normalizedTab = tab.ghostPublicAPI ? {
+                ...tab,
+                ghostIdentityId:   tab.ghostPublicAPI.identity_id          ?? null,
+                ghostWorkspaceId:  tab.ghostPublicAPI.workspace_id          ?? null,
+                ghostIsTemporary:  tab.ghostPublicAPI.is_temporary_identity ?? false,
+            } : tab;
+            this.nodeMap[tab.id] = new TabTreeNode(normalizedTab);
         }
         return this.nodeMap[tab.id];
     }

@@ -65,14 +65,23 @@ class Initializer {
 
     /**
      * Get the tab tree
+     * @param {string} [keyword] - Search keyword filter
+     * @param {string|null} [ghostIdentityFilter] - When set, only include tabs
+     *   whose ghostPublicAPI.identity_id matches this value (Ghost Browser only).
      */
-    async getTree(keyword = undefined) {
+    async getTree(keyword = undefined, ghostIdentityFilter = null) {
         const tabParentMap = await this.getTabParentMap();
         let tabs = await this.getTabList();
         const tabGroups = await this.getTabGroups();
 
         if (this.needFilterByKeyword(keyword)) {
             tabs = this.filterNodes(keyword, tabs);
+        }
+
+        if (ghostIdentityFilter) {
+            tabs = tabs.filter(
+                (tab) => (tab.ghostPublicAPI?.identity_id ?? null) === ghostIdentityFilter
+            );
         }
 
         const treeGen = new TabTreeGenerator(tabs, tabParentMap, tabGroups);

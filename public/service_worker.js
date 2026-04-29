@@ -55,6 +55,12 @@ async function saveWorkspace(name, marks = {}) {
         if (marks[tab.id]) {
             entry.mark = marks[tab.id];
         }
+        if (tab.ghostPublicAPI?.identity_id) {
+            entry.ghostIdentityId = tab.ghostPublicAPI.identity_id;
+        }
+        if (tab.ghostPublicAPI?.workspace_id) {
+            entry.ghostWorkspaceId = tab.ghostPublicAPI.workspace_id;
+        }
         entries.push(entry);
         idx++;
     }
@@ -125,6 +131,7 @@ async function getWorkspacePreview(workspaceId) {
             parentIndex: e.parentIndex ?? null,
             groupId: e.groupId ?? -1,
             mark: e.mark || null,
+            ghostIdentityId: e.ghostIdentityId || null,
         })),
         groups: (ws.groups || []),
     };
@@ -198,7 +205,20 @@ async function openWorkspace(workspaceId) {
     let failedCount = 0;
     for (const entry of entries) {
         try {
-            const tab = await chrome.tabs.create({ url: entry.url, active: false, windowId });
+            let tab;
+            if (entry.ghostIdentityId && chrome.ghostPublicAPI?.openTab) {
+                tab = await new Promise((resolve, reject) => {
+                    chrome.ghostPublicAPI.openTab(
+                        { url: entry.url, identity: entry.ghostIdentityId, active: false },
+                        (t) => {
+                            if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+                            else resolve(t);
+                        }
+                    );
+                });
+            } else {
+                tab = await chrome.tabs.create({ url: entry.url, active: false, windowId });
+            }
             createdTabs.push(tab);
         } catch (e) {
             console.warn('[TST] Failed to restore tab:', entry.url, e?.message);

@@ -129,6 +129,10 @@ body[data-mode="sidepanel"] .outContainer {
   background-color: var(--hover-bg);
 }
 
+.filter-bar-btn.active {
+  background-color: var(--selected-bg-subtle);
+}
+
 /* TabItem Color */
 .fake-li .url {
   color: var(--text-muted);
@@ -478,6 +482,18 @@ body[data-mode="sidepanel"] .tabTreeViewContainer {
   margin: 3px;
   float: left;
   position: relative;
+}
+
+/* Ghost Browser identity dot — overlaid on the favicon */
+.ghost-identity-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid var(--bg-color);
+  pointer-events: none;
 }
 
 /* Collapsed badge - shows children count when collapsed */
