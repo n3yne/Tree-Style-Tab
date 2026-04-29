@@ -36,12 +36,20 @@ CollapsedBadge.displayName = 'CollapsedBadge';
 /**
  * Tab item icon component
  */
+const isSafeFaviconUrl = (url) => {
+    try {
+        return /^https?:/.test(new URL(url).protocol);
+    } catch {
+        return false;
+    }
+};
+
 const TabItemIcon = memo(({ tab }) => {
     if (tab.status === 'loading') {
         return <LoadingOutlined className="front-icon" />;
     }
 
-    if (tab.favIconUrl) {
+    if (tab.favIconUrl && isSafeFaviconUrl(tab.favIconUrl)) {
         return <img src={tab.favIconUrl} alt="" />;
     }
 
@@ -586,7 +594,7 @@ const getUrlInitial = (url) => {
 
 const GroupFavicon = memo(({ favIconUrl, url }) => {
     const [failed, setFailed] = useState(false);
-    if (!favIconUrl || failed) {
+    if (!favIconUrl || failed || !isSafeFaviconUrl(favIconUrl)) {
         return <span className="group-favicon-dot">{getUrlInitial(url)}</span>;
     }
     return <img className="group-favicon" src={favIconUrl} alt="" onError={() => setFailed(true)} />;

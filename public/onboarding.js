@@ -8,9 +8,26 @@
       var msg = chrome.i18n.getMessage(el.getAttribute('data-i18n'));
       if (msg) el.textContent = msg;
     });
+    // Render HTML-bearing i18n messages safely — only allow <strong>, <em>, <kbd>, <br>
     document.querySelectorAll('[data-i18n-html]').forEach(function (el) {
       var msg = chrome.i18n.getMessage(el.getAttribute('data-i18n-html'));
-      if (msg) el.innerHTML = msg;
+      if (!msg) return;
+      var ALLOWED = { STRONG: true, EM: true, KBD: true, BR: true };
+      var parsed = new DOMParser().parseFromString(msg, 'text/html');
+      var fragment = document.createDocumentFragment();
+      (function copyNode(src, dest) {
+        src.childNodes.forEach(function (child) {
+          if (child.nodeType === Node.TEXT_NODE) {
+            dest.appendChild(document.createTextNode(child.textContent));
+          } else if (child.nodeType === Node.ELEMENT_NODE && ALLOWED[child.tagName]) {
+            var safe = document.createElement(child.tagName.toLowerCase());
+            copyNode(child, safe);
+            dest.appendChild(safe);
+          }
+        });
+      }(parsed.body, fragment));
+      el.textContent = '';
+      el.appendChild(fragment);
     });
     // Update page title
     var titleEl = document.querySelector('title[data-i18n]');

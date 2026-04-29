@@ -48,7 +48,8 @@ class Initializer {
      */
     filterNodes(keyword, tabs) {
         try {
-            const regex = new RegExp(keyword, 'i');
+            const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(escaped, 'i');
             return tabs.filter((tab) => regex.test(tab.title) || regex.test(tab.url));
         } catch {
             return tabs;

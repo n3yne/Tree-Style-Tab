@@ -31,7 +31,8 @@ export default class BookmarksTreeGenerator {
 
     filterNode(keyword, tab) {
         try {
-            const regex = new RegExp(keyword, 'i');
+            const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(escaped, 'i');
             return regex.test(tab.title) || regex.test(tab.url);
         } catch {
             return true;

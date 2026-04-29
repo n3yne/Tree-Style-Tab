@@ -5,6 +5,25 @@ const MAX_FREE_WORKSPACES = 3;
 
 const isNewTabUrl = (url) => NEW_TAB_URLS.includes(url);
 
+// Serialize all tabParentMap mutations to prevent read-modify-write races
+// when multiple tab events fire in rapid succession.
+let _tabParentMapQueue = Promise.resolve();
+function mutateTabParentMap(updateFn) {
+    _tabParentMapQueue = _tabParentMapQueue.then(async () => {
+        const ret = await chrome.storage.session.get('tabParentMap');
+        const tabParentMap = ret.tabParentMap || {};
+        updateFn(tabParentMap);
+        await chrome.storage.session.set({ tabParentMap });
+    }).catch((e) => console.error('[TST] tabParentMap update failed:', e));
+}
+
+// Cryptographically random hex string for workspace IDs
+function randomHex(byteCount) {
+    const bytes = new Uint8Array(byteCount);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // ============================================================
 // Workspace: multi-slot save/restore (max 3 in free tier)
 // ============================================================
@@ -64,7 +83,7 @@ async function saveWorkspace(name, marks = {}) {
     } catch {}
 
     const workspace = {
-        id: `ws_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        id: `ws_${Date.now()}_${randomHex(4)}`,
         name: name || 'Workspace',
         createdAt: Date.now(),
         tabCount: entries.length,
@@ -176,11 +195,14 @@ async function openWorkspace(workspaceId) {
 
     // Step 1: Create all tabs
     const createdTabs = [];
+    let failedCount = 0;
     for (const entry of entries) {
         try {
             const tab = await chrome.tabs.create({ url: entry.url, active: false, windowId });
             createdTabs.push(tab);
-        } catch {
+        } catch (e) {
+            console.warn('[TST] Failed to restore tab:', entry.url, e?.message);
+            failedCount++;
             createdTabs.push(null);
         }
     }
@@ -237,7 +259,7 @@ async function openWorkspace(workspaceId) {
         }
     }
 
-    return { success: true, tabCount: createdTabs.filter(Boolean).length, marks: restoredMarks };
+    return { success: true, tabCount: createdTabs.filter(Boolean).length, failedCount, marks: restoredMarks };
 }
 
 // ============================================================
@@ -245,9 +267,12 @@ async function openWorkspace(workspaceId) {
 // ============================================================
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    // Only process messages from our own extension pages and content scripts
+    if (sender.id !== chrome.runtime.id) return;
+
     if (msg.action === 'saveWorkspace') {
         const marks = msg.marks || {};
-        const name = msg.name || '';
+        const name = String(msg.name || '').trim().slice(0, 100);
         saveWorkspace(name, marks).then((result) => {
             sendResponse(result);
         }).catch((e) => {
@@ -337,8 +362,9 @@ chrome.sidePanel
 // Alt+Q → inject overlay popup into the active tab
 async function openOverlayPopup() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab || !tab.url || /^(chrome|edge|chrome-extension|edge-extension|about):/.test(tab.url)) {
-        // Cannot inject into restricted pages, silently ignore
+    // Whitelist: only inject into http/https pages to prevent injection into
+    // privileged pages (chrome://, about:, data:, file://, extension pages, etc.)
+    if (!tab || !tab.url || !/^https?:\/\//.test(tab.url)) {
         return;
     }
     try {
@@ -363,30 +389,16 @@ chrome.commands.onCommand.addListener(async (command) => {
 
 chrome.tabs.onCreated.addListener((tab) => {
     if (!isNewTabUrl(tab.url) && tab.openerTabId !== undefined) {
-        chrome.storage.session.get(['tabParentMap'], (ret) => {
-            let tabParentMap = ret.tabParentMap || {};
-            tabParentMap[tab.id] = tab.openerTabId;
-            chrome.storage.session.set({ tabParentMap });
-        });
+        mutateTabParentMap((map) => { map[tab.id] = tab.openerTabId; });
     }
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.url) {
-        if (isNewTabUrl(tab.url)) {
-            chrome.storage.session.get(['tabParentMap'], (ret) => {
-                let tabParentMap = ret.tabParentMap || {};
-                delete tabParentMap[tab.id];
-                chrome.storage.session.set({ tabParentMap });
-            });
-        }
+    if (changeInfo.url && isNewTabUrl(tab.url)) {
+        mutateTabParentMap((map) => { delete map[tab.id]; });
     }
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
-    chrome.storage.session.get(['tabParentMap'], (ret) => {
-        let tabParentMap = ret.tabParentMap || {};
-        delete tabParentMap[tabId];
-        chrome.storage.session.set({ tabParentMap });
-    });
+    mutateTabParentMap((map) => { delete map[tabId]; });
 });

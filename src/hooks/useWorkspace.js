@@ -92,6 +92,10 @@ export default function useWorkspace(chrome, tabMarks, setTabMarks) {
 
     const handleViewWorkspaces = useCallback(() => {
         chrome.runtime.sendMessage({ action: 'listWorkspaces' }, (resp) => {
+            if (chrome.runtime.lastError) {
+                console.error('[TST] listWorkspaces failed:', chrome.runtime.lastError.message);
+                return;
+            }
             setWsList(resp?.workspaces || []);
             setWsView('list');
             setWsPreview(null);
@@ -104,6 +108,11 @@ export default function useWorkspace(chrome, tabMarks, setTabMarks) {
 
     const handleBackFromPreview = useCallback(() => {
         chrome.runtime.sendMessage({ action: 'listWorkspaces' }, (resp) => {
+            if (chrome.runtime.lastError) {
+                console.error('[TST] listWorkspaces failed:', chrome.runtime.lastError.message);
+                setWsView('list');
+                return;
+            }
             setWsList(resp?.workspaces || []);
             setWsView('list');
             setWsPreview(null);
@@ -112,6 +121,10 @@ export default function useWorkspace(chrome, tabMarks, setTabMarks) {
 
     const handleOpenPreview = useCallback((wsId) => {
         chrome.runtime.sendMessage({ action: 'getWorkspacePreview', id: wsId }, (resp) => {
+            if (chrome.runtime.lastError) {
+                console.error('[TST] getWorkspacePreview failed:', chrome.runtime.lastError.message);
+                return;
+            }
             if (resp?.exists) {
                 setWsPreview(resp);
                 setWsView('preview');
@@ -144,11 +157,16 @@ export default function useWorkspace(chrome, tabMarks, setTabMarks) {
     }, []);
 
     const handleConfirmSave = useCallback(() => {
-        const name = wsSaveName.trim();
+        const name = wsSaveName.trim().slice(0, 100);
         if (!name) return;
         const marks = {};
         tabMarks.forEach((value, key) => { marks[key] = value; });
         chrome.runtime.sendMessage({ action: 'saveWorkspace', name, marks }, (resp) => {
+            if (chrome.runtime.lastError) {
+                console.error('[TST] saveWorkspace failed:', chrome.runtime.lastError.message);
+                setWsSaving(false);
+                return;
+            }
             if (resp?.success) {
                 setWsSaving(false);
                 setWsSaveName('');
@@ -174,6 +192,10 @@ export default function useWorkspace(chrome, tabMarks, setTabMarks) {
 
     const mergeRestoredMarks = useCallback((resp) => {
         setWsRestoring(null);
+        if (chrome.runtime.lastError) {
+            console.error('[TST] openWorkspace failed:', chrome.runtime.lastError.message);
+            return;
+        }
         if (resp?.marks) {
             setTabMarks(prev => {
                 const next = new Map(prev);
@@ -203,9 +225,14 @@ export default function useWorkspace(chrome, tabMarks, setTabMarks) {
     const handleDeleteWorkspace = useCallback((wsId) => {
         setWsDeleteConfirmId(null);
         chrome.runtime.sendMessage({ action: 'deleteWorkspace', id: wsId }, (resp) => {
+            if (chrome.runtime.lastError) {
+                console.error('[TST] deleteWorkspace failed:', chrome.runtime.lastError.message);
+                return;
+            }
             if (resp?.success) {
                 if (wsView === 'preview' && wsPreview?.id === wsId) {
                     chrome.runtime.sendMessage({ action: 'listWorkspaces' }, (r) => {
+                        if (chrome.runtime.lastError) return;
                         setWsList(r?.workspaces || []);
                         setWsView('list');
                         setWsPreview(null);

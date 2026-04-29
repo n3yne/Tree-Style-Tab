@@ -55,8 +55,11 @@
     }
     document.addEventListener('keydown', onKeyDown, true);
 
-    // Listen for close message from the iframe (e.g. after tab switch)
+    // Listen for close message from the iframe (e.g. after tab switch).
+    // Only trust messages originating from our own extension pages.
+    const EXTENSION_ORIGIN = new URL(chrome.runtime.getURL('')).origin;
     window.addEventListener('message', function handler(e) {
+        if (e.origin !== EXTENSION_ORIGIN) return;
         if (e.data && e.data.type === 'tst-close-overlay') {
             closeOverlay();
             window.removeEventListener('message', handler);

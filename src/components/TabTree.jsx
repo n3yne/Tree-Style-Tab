@@ -305,17 +305,17 @@ const useTabData = (initializer, chrome) => {
         chrome.tabGroups?.onRemoved?.addListener(scheduleRefresh);
 
         return () => {
-            chrome.tabs.onUpdated.removeListener?.(onTabUpdate);
-            chrome.tabs.onRemoved.removeListener?.(scheduleRefresh);
-            chrome.tabs.onCreated.removeListener?.(scheduleRefresh);
-            chrome.tabs.onActivated.removeListener?.(scheduleRefresh);
-            chrome.tabs.onMoved.removeListener?.(scheduleRefresh);
-            chrome.tabs.onAttached.removeListener?.(scheduleRefresh);
-            chrome.tabs.onDetached.removeListener?.(scheduleRefresh);
-            chrome.storage.onChanged.removeListener?.(onStorageChanged);
-            chrome.tabGroups?.onCreated?.removeListener?.(scheduleRefresh);
-            chrome.tabGroups?.onUpdated?.removeListener?.(scheduleRefresh);
-            chrome.tabGroups?.onRemoved?.removeListener?.(scheduleRefresh);
+            chrome.tabs.onUpdated.removeListener(onTabUpdate);
+            chrome.tabs.onRemoved.removeListener(scheduleRefresh);
+            chrome.tabs.onCreated.removeListener(scheduleRefresh);
+            chrome.tabs.onActivated.removeListener(scheduleRefresh);
+            chrome.tabs.onMoved.removeListener(scheduleRefresh);
+            chrome.tabs.onAttached.removeListener(scheduleRefresh);
+            chrome.tabs.onDetached.removeListener(scheduleRefresh);
+            chrome.storage.onChanged.removeListener(onStorageChanged);
+            chrome.tabGroups?.onCreated?.removeListener(scheduleRefresh);
+            chrome.tabGroups?.onUpdated?.removeListener(scheduleRefresh);
+            chrome.tabGroups?.onRemoved?.removeListener(scheduleRefresh);
         };
     }, [chrome.tabs, chrome.storage, chrome.tabGroups, onTabUpdate, scheduleRefresh]);
 
@@ -413,9 +413,11 @@ export default function TabTree({ chrome, initializer, panelMode = 'popup' }) {
         } else {
             chrome.tabs.update(tab.id, { active: true });
         }
-        // Close the overlay if running inside one
+        // Close the overlay if running inside one.
+        // The content_overlay.js listener validates e.origin, so we use the
+        // extension's own origin as the target (it's our parent iframe context).
         if (window.parent !== window) {
-            window.parent.postMessage({ type: 'tst-close-overlay' }, '*');
+            window.parent.postMessage({ type: 'tst-close-overlay' }, window.location.origin);
         }
     }, [chrome.tabs, keyword, searchByGoogle]);
 
@@ -596,7 +598,7 @@ export default function TabTree({ chrome, initializer, panelMode = 'popup' }) {
 
     // Handle search text change
     const handleSearchChange = useCallback((e) => {
-        const normalizedKeyword = e.target.value.replace(/\\/g, '\\\\');
+        const normalizedKeyword = e.target.value;
         setKeyword(normalizedKeyword);
         refreshRootNode(normalizedKeyword);
     }, [setKeyword, refreshRootNode]);

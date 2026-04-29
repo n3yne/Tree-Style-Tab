@@ -10,7 +10,8 @@ function HighlightLabel({ className, keyword, children }) {
         }
 
         try {
-            const regex = new RegExp(keyword, 'ig');
+            const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(escaped, 'ig');
             const text = String(children);
             const parts = [];
             let lastIndex = 0;
